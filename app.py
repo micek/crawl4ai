@@ -53,26 +53,19 @@ async def crawl_url(url, full_content=False):
     async with AsyncWebCrawler(verbose=True) as crawler:
         result = await crawler.arun(url=url)
 
-        # Return full content for download, or truncated for preview
+        # Return full markdown content (no truncation)
         markdown = result.markdown if result.markdown else ''
-        html = result.html if result.html else ''
-
-        if not full_content:
-            markdown = markdown[:5000]  # Limit to first 5000 chars for preview
-            html = html[:2000]  # First 2000 chars of HTML for preview
 
         return {
             'markdown': markdown,
-            'markdown_full': result.markdown if result.markdown else '',  # Always include full for download
-            'html': html,
+            'markdown_full': markdown,  # Same as markdown (full content)
+            'html': result.html if result.html else '',
             'links': result.links['internal'][:10] if hasattr(result, 'links') and result.links else [],
             'media': result.media['images'][:10] if hasattr(result, 'media') and result.media else []
         }
 
 async def fetch_sitemap_urls(base_url):
     """Fetch and parse sitemap to get all URLs"""
-    sitemap_urls = []
-
     # Common sitemap locations
     possible_sitemaps = [
         urljoin(base_url, '/sitemap.xml'),
@@ -93,48 +86,56 @@ async def fetch_sitemap_urls(base_url):
                         for line in result.html.split('\n'):
                             if line.lower().startswith('sitemap:'):
                                 sitemap_location = line.split(':', 1)[1].strip()
-                                sitemap_result = await crawler.arun(url=sitemap_location)
-                                urls = parse_sitemap_xml(sitemap_result.html)
+                                urls = await parse_sitemap_recursive(crawler, sitemap_location)
                                 if urls:
                                     return urls
                 else:
                     # Parse XML sitemap
-                    urls = parse_sitemap_xml(result.html)
+                    urls = await parse_sitemap_recursive(crawler, sitemap_url)
                     if urls:
                         return urls
             except Exception as e:
+                print(f"Error fetching sitemap {sitemap_url}: {e}")
                 continue
 
-    return sitemap_urls
+    return []
 
-def parse_sitemap_xml(xml_content):
-    """Parse sitemap XML and extract URLs"""
-    urls = []
-
-    if not xml_content:
-        return urls
+async def parse_sitemap_recursive(crawler, sitemap_url):
+    """Recursively parse sitemap and all sub-sitemaps to get all page URLs"""
+    all_urls = []
 
     try:
-        # Remove namespace for easier parsing
-        xml_content = re.sub(r'xmlns="[^"]+"', '', xml_content)
+        print(f"Fetching sitemap: {sitemap_url}")
+        result = await crawler.arun(url=sitemap_url)
+
+        if not result.html:
+            return all_urls
+
+        # Parse the XML
+        xml_content = re.sub(r'xmlns="[^"]+"', '', result.html)
         root = ET.fromstring(xml_content)
 
-        # Check if it's a sitemap index
-        for sitemap in root.findall('.//sitemap'):
-            loc = sitemap.find('loc')
-            if loc is not None and loc.text:
-                urls.append(loc.text)
+        # Check if it's a sitemap index (contains other sitemaps)
+        sitemap_refs = root.findall('.//sitemap/loc')
+        if sitemap_refs:
+            print(f"Found sitemap index with {len(sitemap_refs)} sub-sitemaps")
+            # This is a sitemap index - recursively fetch all sub-sitemaps
+            for sitemap_loc in sitemap_refs:
+                if sitemap_loc.text:
+                    sub_urls = await parse_sitemap_recursive(crawler, sitemap_loc.text)
+                    all_urls.extend(sub_urls)
 
-        # Check for regular URLs
-        for url in root.findall('.//url'):
-            loc = url.find('loc')
-            if loc is not None and loc.text:
-                urls.append(loc.text)
+        # Get actual page URLs from this sitemap
+        url_locs = root.findall('.//url/loc')
+        if url_locs:
+            page_urls = [loc.text for loc in url_locs if loc.text]
+            print(f"Found {len(page_urls)} page URLs in sitemap")
+            all_urls.extend(page_urls)
 
     except Exception as e:
-        print(f"Error parsing sitemap XML: {e}")
+        print(f"Error parsing sitemap {sitemap_url}: {e}")
 
-    return urls
+    return all_urls
 
 def generate_filename_from_url(url):
     """Generate a safe filename from URL"""
@@ -198,14 +199,15 @@ async def crawl_multiple_urls(urls):
     results = []
 
     async with AsyncWebCrawler(verbose=True) as crawler:
-        for url in urls[:50]:  # Limit to first 50 URLs to avoid overload
+        for url in urls:  # Crawl ALL URLs from sitemap (no limit)
             try:
                 result = await crawler.arun(url=url)
 
+                markdown = result.markdown if result.markdown else ''
                 results.append({
                     'url': url,
-                    'markdown': result.markdown[:5000] if result.markdown else '',  # Preview
-                    'markdown_full': result.markdown if result.markdown else '',  # Full content
+                    'markdown': markdown,  # Full content (no truncation)
+                    'markdown_full': markdown,  # Full content
                     'filename': generate_filename_from_url(url),
                     'success': True
                 })

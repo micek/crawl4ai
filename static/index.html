@@ -464,30 +464,8 @@
                     if (data.markdown) {
                         resultHtml += `
                             <div class="section">
-                                <div class="section-title">📄 Content Preview (first 5000 chars):</div>
+                                <div class="section-title">📄 Markdown Content:</div>
                                 <pre>${escapeHtml(data.markdown)}</pre>
-                            </div>
-                        `;
-                    }
-
-                    if (data.links && data.links.length > 0) {
-                        resultHtml += `
-                            <div class="section">
-                                <div class="section-title">🔗 Internal Links Found (${data.links.length}):</div>
-                                <ul class="links-list">
-                                    ${data.links.map(link => `<li><a href="${link}" target="_blank">${link}</a></li>`).join('')}
-                                </ul>
-                            </div>
-                        `;
-                    }
-
-                    if (data.media && data.media.length > 0) {
-                        resultHtml += `
-                            <div class="section">
-                                <div class="section-title">🖼️ Images Found (${data.media.length}):</div>
-                                <ul class="media-list">
-                                    ${data.media.map(media => `<li>${media}</li>`).join('')}
-                                </ul>
                             </div>
                         `;
                     }
@@ -547,7 +525,7 @@
                         resultHtml += `
                             <div class="page-result">
                                 <div class="page-url">📄 ${page.url}</div>
-                                <pre style="max-height: 150px; overflow-y: auto; font-size: 12px; background: white; padding: 10px; border-radius: 5px; margin: 8px 0;">${escapeHtml(page.markdown.substring(0, 500))}${page.markdown.length > 500 ? '...' : ''}</pre>
+                                <pre style="max-height: 300px; overflow-y: auto; font-size: 12px; background: white; padding: 10px; border-radius: 5px; margin: 8px 0;">${escapeHtml(page.markdown)}</pre>
                                 <button class="download-button" onclick="downloadMarkdown(\`${escapeForJs(page.markdown_full)}\`, '${page.filename}')">
                                     📥 Download ${page.filename}
                                 </button>
