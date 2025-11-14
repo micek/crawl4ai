@@ -47,12 +47,12 @@ A local website crawler built with Crawl4AI featuring a beautiful chat-style use
    You should see:
    ```
    Starting Crawl4AI Web Crawler Server...
-   Server running at http://localhost:5000
-   * Running on http://127.0.0.1:5000
+   Server running at http://localhost:5001
+   * Running on http://127.0.0.1:5001
    ```
 
 2. **Open your browser:**
-   Navigate to `http://localhost:5000`
+   Navigate to `http://localhost:5001`
 
 3. **Crawl websites:**
    - Enter any website URL in the input field
@@ -135,7 +135,7 @@ python3 -m playwright install chromium
 
 ### Other issues
 - **Setup issues:** Run `crawl4ai-doctor` for diagnostics
-- **Port already in use:** Change port in `app.py` (line 59)
+- **Port already in use:** Change port in `app.py` (default is 5001)
 - **Playwright errors:** Run `playwright install --with-deps`
 
 ## License
