@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crawl4AI - Web Crawler Chat</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -481,22 +482,55 @@
             });
         }
 
-        function downloadAllMarkdown(pages) {
-            pages.forEach((page, index) => {
-                if (page.success && page.markdown_full) {
-                    setTimeout(() => {
-                        const blob = new Blob([page.markdown_full], { type: 'text/markdown' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = page.filename;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }, index * 100); // Stagger downloads
+        async function downloadAllMarkdown(pages) {
+            try {
+                // Create a new JSZip instance
+                const zip = new JSZip();
+
+                // Add each markdown file to the ZIP
+                let addedFiles = 0;
+                pages.forEach((page) => {
+                    if (page.success && page.markdown_full) {
+                        zip.file(page.filename, page.markdown_full);
+                        addedFiles++;
+                    }
+                });
+
+                if (addedFiles === 0) {
+                    alert('No markdown files to download');
+                    return;
                 }
-            });
+
+                // Generate the ZIP file
+                const zipBlob = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: {
+                        level: 9 // Maximum compression
+                    }
+                });
+
+                // Create download link for ZIP file
+                const url = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                // Generate filename from first page's URL or use default
+                const firstPage = pages.find(p => p.success);
+                const siteName = firstPage ? new URL(firstPage.url).hostname.replace(/^www\./, '') : 'website';
+                const timestamp = new Date().toISOString().split('T')[0];
+                a.download = `${siteName}_markdown_${timestamp}.zip`;
+
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                console.log(`Successfully created ZIP with ${addedFiles} markdown files`);
+            } catch (error) {
+                console.error('Error creating ZIP file:', error);
+                alert('Failed to create ZIP file: ' + error.message);
+            }
         }
 
         async function crawlSinglePage(url) {
