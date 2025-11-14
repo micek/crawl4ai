@@ -69,6 +69,17 @@ def fetch_sitemap_urls(base_url):
     """Fetch and parse sitemap to get all URLs using requests for XML"""
     print(f"\n=== Starting sitemap fetch for: {base_url} ===")
 
+    # Browser-like headers to avoid blocking
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
+    }
+
     # Common sitemap locations
     possible_sitemaps = [
         urljoin(base_url, '/sitemap.xml'),
@@ -86,26 +97,39 @@ def fetch_sitemap_urls(base_url):
 
             if sitemap_url.endswith('robots.txt'):
                 # Parse robots.txt for sitemap location
-                response = requests.get(sitemap_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+                response = requests.get(sitemap_url, timeout=10, headers=headers)
                 if response.status_code == 200:
                     print(f"✓ Found robots.txt")
                     for line in response.text.split('\n'):
                         if line.lower().startswith('sitemap:'):
                             sitemap_location = line.split(':', 1)[1].strip()
                             print(f"Found sitemap in robots.txt: {sitemap_location}")
-                            urls = parse_sitemap_recursive(sitemap_location)
+                            urls = parse_sitemap_recursive(sitemap_location, headers=headers)
                             if urls:
                                 print(f"✓ Successfully found {len(urls)} URLs from robots.txt sitemap")
                                 return urls
             else:
                 # Try to fetch XML sitemap
-                response = requests.get(sitemap_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
-                if response.status_code == 200 and ('xml' in response.headers.get('Content-Type', '').lower() or sitemap_url.endswith('.xml')):
+                response = requests.get(sitemap_url, timeout=10, headers=headers)
+                content_type = response.headers.get('Content-Type', '')
+                print(f"  Status: {response.status_code}, Content-Type: {content_type}")
+
+                xml_content = None
+                if response.status_code == 200 and ('xml' in content_type.lower() or sitemap_url.endswith('.xml')):
+                    xml_content = response.text
+                elif response.status_code == 403 and sitemap_url.endswith('.xml'):
+                    # Try with browser-based crawler for 403 errors
+                    print(f"  Trying browser-based fetch for {sitemap_url}...")
+                    xml_content = asyncio.run(fetch_xml_with_browser(sitemap_url))
+
+                if xml_content:
                     print(f"✓ Found sitemap at: {sitemap_url}")
-                    urls = parse_sitemap_recursive(sitemap_url, xml_content=response.text)
+                    urls = parse_sitemap_recursive(sitemap_url, xml_content=xml_content, headers=headers)
                     if urls:
                         print(f"✓ Successfully found {len(urls)} URLs")
                         return urls
+                    else:
+                        print(f"  No URLs extracted from {sitemap_url}")
         except Exception as e:
             print(f"✗ Error fetching {sitemap_url}: {e}")
             continue
@@ -113,24 +137,56 @@ def fetch_sitemap_urls(base_url):
     print(f"✗ No sitemap found for {base_url}")
     return []
 
-def parse_sitemap_recursive(sitemap_url, xml_content=None):
+async def fetch_xml_with_browser(url):
+    """Fetch XML content using AsyncWebCrawler to bypass protections"""
+    try:
+        async with AsyncWebCrawler(verbose=False) as crawler:
+            result = await crawler.arun(url=url)
+            return result.html if result.html else None
+    except Exception as e:
+        print(f"Failed to fetch {url} with browser: {e}")
+        return None
+
+def parse_sitemap_recursive(sitemap_url, xml_content=None, headers=None):
     """Recursively parse sitemap and all sub-sitemaps to get all page URLs"""
     all_urls = []
+
+    # Default headers if not provided
+    if headers is None:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
 
     try:
         print(f"Parsing sitemap: {sitemap_url}")
 
         # Fetch XML content if not provided
         if xml_content is None:
-            response = requests.get(sitemap_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
-            if response.status_code != 200:
-                print(f"Failed to fetch {sitemap_url}: HTTP {response.status_code}")
-                return all_urls
-            xml_content = response.text
+            # First try with requests (faster)
+            response = requests.get(sitemap_url, timeout=10, headers=headers)
+            if response.status_code == 200:
+                xml_content = response.text
+            else:
+                # If requests fails, try with browser-based crawler
+                print(f"  Requests failed ({response.status_code}), trying browser-based fetch...")
+                xml_content = asyncio.run(fetch_xml_with_browser(sitemap_url))
+                if not xml_content:
+                    print(f"Failed to fetch {sitemap_url}")
+                    return all_urls
 
-        # Remove namespaces for easier parsing
+        # Remove namespaces and namespace prefixes for easier parsing
+        # First remove namespace declarations
         xml_content = re.sub(r'xmlns="[^"]+"', '', xml_content)
         xml_content = re.sub(r'xmlns:[^=]+="[^"]+"', '', xml_content)
+        # Then remove namespace prefixes from element names (e.g., <image:image> becomes <image>)
+        xml_content = re.sub(r'<([a-zA-Z0-9_-]+):([a-zA-Z0-9_-]+)', r'<\2', xml_content)
+        xml_content = re.sub(r'</([a-zA-Z0-9_-]+):([a-zA-Z0-9_-]+)', r'</\2', xml_content)
 
         root = ET.fromstring(xml_content)
 
@@ -142,7 +198,7 @@ def parse_sitemap_recursive(sitemap_url, xml_content=None):
             for sitemap_loc in sitemap_refs:
                 if sitemap_loc.text:
                     print(f"  Fetching sub-sitemap: {sitemap_loc.text}")
-                    sub_urls = parse_sitemap_recursive(sitemap_loc.text)
+                    sub_urls = parse_sitemap_recursive(sitemap_loc.text, headers=headers)
                     all_urls.extend(sub_urls)
                     print(f"  Got {len(sub_urls)} URLs from sub-sitemap")
 
