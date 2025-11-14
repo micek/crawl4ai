@@ -181,6 +181,35 @@
             transform: translateY(-1px);
         }
 
+        .copy-button {
+            padding: 6px 12px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .copy-button:hover {
+            background: #229954;
+            transform: translateY(-1px);
+        }
+
+        .copy-button.copied {
+            background: #16a085;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
         .page-result {
             background: #f8f9fa;
             padding: 15px;
@@ -423,6 +452,25 @@
             URL.revokeObjectURL(url);
         }
 
+        function copyToClipboard(text, buttonId) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Visual feedback
+                const button = document.getElementById(buttonId);
+                if (button) {
+                    const originalHTML = button.innerHTML;
+                    button.innerHTML = '✓ Copied!';
+                    button.classList.add('copied');
+                    setTimeout(() => {
+                        button.innerHTML = originalHTML;
+                        button.classList.remove('copied');
+                    }, 2000);
+                }
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy to clipboard');
+            });
+        }
+
         function downloadAllMarkdown(pages) {
             pages.forEach((page, index) => {
                 if (page.success && page.markdown_full) {
@@ -452,12 +500,18 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    const uniqueId = 'copy-btn-' + Date.now();
                     let resultHtml = `
                         <div class="url-info">
                             <span>✅ Successfully crawled: ${data.url}</span>
-                            <button class="download-button" onclick="downloadMarkdown(\`${escapeForJs(data.markdown_full)}\`, '${data.filename}')">
-                                📥 Download Markdown
-                            </button>
+                            <div class="button-group">
+                                <button class="copy-button" id="${uniqueId}" onclick="copyToClipboard(\`${escapeForJs(data.markdown_full)}\`, '${uniqueId}')">
+                                    📋 Copy
+                                </button>
+                                <button class="download-button" onclick="downloadMarkdown(\`${escapeForJs(data.markdown_full)}\`, '${data.filename}')">
+                                    Markdown
+                                </button>
+                            </div>
                         </div>
                     `;
 
@@ -522,13 +576,19 @@
 
                     // Display successful pages
                     successPages.forEach((page, index) => {
+                        const uniqueId = 'copy-btn-sitemap-' + index;
                         resultHtml += `
                             <div class="page-result">
                                 <div class="page-url">📄 ${page.url}</div>
                                 <pre style="max-height: 300px; overflow-y: auto; font-size: 12px; background: white; padding: 10px; border-radius: 5px; margin: 8px 0;">${escapeHtml(page.markdown)}</pre>
-                                <button class="download-button" onclick="downloadMarkdown(\`${escapeForJs(page.markdown_full)}\`, '${page.filename}')">
-                                    📥 Download ${page.filename}
-                                </button>
+                                <div class="button-group">
+                                    <button class="copy-button" id="${uniqueId}" onclick="copyToClipboard(\`${escapeForJs(page.markdown_full)}\`, '${uniqueId}')">
+                                        📋 Copy
+                                    </button>
+                                    <button class="download-button" onclick="downloadMarkdown(\`${escapeForJs(page.markdown_full)}\`, '${page.filename}')">
+                                        Markdown
+                                    </button>
+                                </div>
                             </div>
                         `;
                     });
