@@ -12,33 +12,43 @@ A local website crawler built with Crawl4AI featuring a beautiful chat-style use
 - 🎨 Beautiful gradient design
 - ⚡ Real-time crawling with async support
 
-## Installation
+## Quick Start
+
+### Option 1: Using the start script (Easiest)
+```bash
+./start.sh
+```
+
+### Option 2: Manual setup
 
 1. **Install dependencies:**
    ```bash
-   pip install -r requirements.txt
+   pip install --break-system-packages -r requirements.txt
    ```
 
 2. **Setup Crawl4AI:**
    ```bash
    crawl4ai-setup
+   python3 -m playwright install chromium
    ```
 
-   If you encounter any issues, run the diagnostic tool:
+3. **Start the server:**
    ```bash
-   crawl4ai-doctor
-   ```
-
-3. **Install Playwright (if needed):**
-   ```bash
-   playwright install
+   python app.py
    ```
 
 ## Usage
 
-1. **Start the server:**
+1. **Start the server** (if not already running):
    ```bash
    python app.py
+   ```
+
+   You should see:
+   ```
+   Starting Crawl4AI Web Crawler Server...
+   Server running at http://localhost:5000
+   * Running on http://127.0.0.1:5000
    ```
 
 2. **Open your browser:**
@@ -55,6 +65,7 @@ A local website crawler built with Crawl4AI featuring a beautiful chat-style use
 crawl4ai/
 ├── app.py              # Flask backend with Crawl4AI integration
 ├── requirements.txt    # Python dependencies
+├── start.sh            # Quick start script
 ├── static/
 │   └── index.html     # Chat UI interface
 └── README.md          # This file
@@ -103,9 +114,29 @@ Health check endpoint.
 
 ## Troubleshooting
 
-- **Playwright errors:** Run `playwright install`
+### "ModuleNotFoundError: No module named 'flask'"
+Install dependencies first:
+```bash
+pip install --break-system-packages -r requirements.txt
+```
+
+### "Cannot uninstall cryptography" error
+This is a system package conflict. Remove old version and reinstall:
+```bash
+rm -rf /usr/lib/python3/dist-packages/cryptography*
+pip install --break-system-packages -r requirements.txt
+```
+
+### Playwright browser installation fails
+Manually install Chromium:
+```bash
+python3 -m playwright install chromium
+```
+
+### Other issues
 - **Setup issues:** Run `crawl4ai-doctor` for diagnostics
-- **Port already in use:** Change port in `app.py`
+- **Port already in use:** Change port in `app.py` (line 59)
+- **Playwright errors:** Run `playwright install --with-deps`
 
 ## License
 
