@@ -1,7 +1,8 @@
 import asyncio
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from crawl4ai import AsyncWebCrawler
+from crawl4ai import AsyncWebCrawler, AsyncUrlSeeder, SeedingConfig, CrawlerRunConfig
+from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
 import sys
 import xml.etree.ElementTree as ET
 from urllib.parse import urlparse, urljoin
@@ -242,12 +243,123 @@ def generate_filename_from_url(url):
 
     return filename
 
+async def discover_urls_with_seeder(base_url, max_urls=100):
+    """
+    Discover URLs using AsyncUrlSeeder with automatic fallback.
+    Tries: sitemap → Common Crawl → deep crawling
+    """
+    discovered_urls = []
+    method_used = "unknown"
+
+    try:
+        print(f"\n=== Starting URL discovery for: {base_url} ===")
+
+        # Method 1: Try sitemap + Common Crawl (recommended approach)
+        print("Attempting URL discovery with sitemap+cc (sitemap with Common Crawl fallback)...")
+        try:
+            config = SeedingConfig(
+                source="sitemap+cc",  # Try sitemap first, fall back to Common Crawl
+                max_urls=max_urls,
+                verbose=True
+            )
+            seeder = AsyncUrlSeeder()
+
+            # urls() is async and returns List[Dict[str, Any]] where each dict has 'url' key
+            url_dicts = await seeder.urls(base_url, config=config)
+
+            # Extract just the URL strings
+            for url_dict in url_dicts[:max_urls]:
+                if isinstance(url_dict, dict) and 'url' in url_dict:
+                    discovered_urls.append(url_dict['url'])
+                elif isinstance(url_dict, str):
+                    discovered_urls.append(url_dict)
+
+            if discovered_urls:
+                method_used = "sitemap+cc"
+                print(f"✓ Found {len(discovered_urls)} URLs using sitemap+cc")
+                return discovered_urls, method_used
+        except Exception as e:
+            print(f"sitemap+cc discovery failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # Method 2: Try Common Crawl only
+        if not discovered_urls:
+            print("\nAttempting URL discovery with Common Crawl only...")
+            try:
+                config = SeedingConfig(
+                    source="cc",  # Common Crawl only
+                    max_urls=max_urls,
+                    verbose=True
+                )
+                seeder = AsyncUrlSeeder()
+
+                url_dicts = await seeder.urls(base_url, config=config)
+
+                for url_dict in url_dicts[:max_urls]:
+                    if isinstance(url_dict, dict) and 'url' in url_dict:
+                        discovered_urls.append(url_dict['url'])
+                    elif isinstance(url_dict, str):
+                        discovered_urls.append(url_dict)
+
+                if discovered_urls:
+                    method_used = "common_crawl"
+                    print(f"✓ Found {len(discovered_urls)} URLs using Common Crawl")
+                    return discovered_urls, method_used
+            except Exception as e:
+                print(f"Common Crawl discovery failed: {e}")
+                import traceback
+                traceback.print_exc()
+
+        # Method 3: Fall back to deep crawling (link-based discovery)
+        if not discovered_urls:
+            print("\nNo sitemap or Common Crawl data found. Using deep crawl strategy...")
+            try:
+                async with AsyncWebCrawler(verbose=True) as crawler:
+                    config = CrawlerRunConfig(
+                        deep_crawl_strategy=BFSDeepCrawlStrategy(
+                            max_depth=2,              # Crawl up to 2 levels deep
+                            max_pages=max_urls,       # Limit total pages
+                            include_external=False    # Stay within domain
+                        )
+                    )
+
+                    result = await crawler.arun(url=base_url, config=config)
+
+                    # The deep crawl will discover URLs through links
+                    # We'll get them from the crawler's discovered URLs
+                    if hasattr(result, 'discovered_urls'):
+                        discovered_urls = list(result.discovered_urls)[:max_urls]
+                    else:
+                        # If no discovered_urls attribute, at least include the base URL
+                        discovered_urls = [base_url]
+
+                    method_used = "deep_crawl"
+                    print(f"✓ Found {len(discovered_urls)} URLs using deep crawl")
+                    return discovered_urls, method_used
+            except Exception as e:
+                print(f"Deep crawl discovery failed: {e}")
+
+        # If all methods fail, return at least the base URL
+        if not discovered_urls:
+            print("⚠ All URL discovery methods failed. Falling back to base URL only.")
+            discovered_urls = [base_url]
+            method_used = "fallback"
+
+        return discovered_urls, method_used
+
+    except Exception as e:
+        print(f"✗ URL discovery error: {e}")
+        # Return at least the base URL so user can crawl something
+        return [base_url], "error_fallback"
+
 @app.route('/api/crawl-sitemap', methods=['POST'])
 def crawl_sitemap():
-    """Endpoint to crawl all pages in a sitemap"""
+    """Endpoint to crawl all pages discovered via sitemap, Common Crawl, or deep crawl"""
     try:
         data = request.get_json()
         url = data.get('url')
+        max_urls = data.get('max_urls', 100)  # Allow user to specify max URLs
 
         if not url:
             return jsonify({'error': 'URL is required'}), 400
@@ -256,28 +368,32 @@ def crawl_sitemap():
         if not url.startswith('http://') and not url.startswith('https://'):
             url = 'https://' + url
 
-        # Fetch sitemap URLs (synchronous)
-        sitemap_urls = fetch_sitemap_urls(url)
+        # Discover URLs using AsyncUrlSeeder with automatic fallback
+        discovered_urls, method_used = asyncio.run(discover_urls_with_seeder(url, max_urls))
 
-        if not sitemap_urls:
+        if not discovered_urls:
             return jsonify({
                 'success': False,
-                'error': 'No sitemap found or sitemap is empty. Please check the server logs for details.'
+                'error': 'Could not discover any URLs. Please check the server logs for details.'
             }), 404
 
-        print(f"\n=== Found {len(sitemap_urls)} total URLs to crawl ===\n")
+        print(f"\n=== Found {len(discovered_urls)} URLs using '{method_used}' method ===\n")
 
-        # Crawl all URLs from sitemap
-        results = asyncio.run(crawl_multiple_urls(sitemap_urls))
+        # Crawl all discovered URLs
+        results = asyncio.run(crawl_multiple_urls(discovered_urls))
 
         return jsonify({
             'success': True,
             'base_url': url,
+            'discovery_method': method_used,
             'total_pages': len(results),
             'pages': results
         })
 
     except Exception as e:
+        print(f"Error in crawl_sitemap: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)

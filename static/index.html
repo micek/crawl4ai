@@ -587,10 +587,21 @@
                     // Store pages data globally for download function
                     window.sitemapPages = data.pages;
 
+                    // Display discovery method
+                    const methodLabels = {
+                        'sitemap+cc': 'Sitemap (with Common Crawl fallback)',
+                        'common_crawl': 'Common Crawl',
+                        'deep_crawl': 'Deep Crawl (link-based discovery)',
+                        'fallback': 'Single Page (fallback)',
+                        'error_fallback': 'Single Page (error fallback)'
+                    };
+                    const methodLabel = methodLabels[data.discovery_method] || data.discovery_method;
+
                     let resultHtml = `
                         <div class="success">
                             ✅ Successfully crawled ${successPages.length} of ${data.total_pages} pages
                             ${failedPages.length > 0 ? `<br>(${failedPages.length} failed)` : ''}
+                            <br><small>Discovery method: ${methodLabel}</small>
                         </div>
                         <button class="download-all-button" onclick="downloadAllMarkdown(window.sitemapPages)">
                             📦 Download All Markdown Files
