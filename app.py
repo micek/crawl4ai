@@ -1,8 +1,22 @@
 import asyncio
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from crawl4ai import AsyncWebCrawler
-import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Configuration from environment variables with sensible defaults
+FLASK_HOST = os.getenv('FLASK_HOST', '0.0.0.0')
+FLASK_PORT = int(os.getenv('FLASK_PORT', 5000))
+FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
+CRAWLER_VERBOSE = os.getenv('CRAWLER_VERBOSE', 'True').lower() == 'true'
+MAX_MARKDOWN_LENGTH = int(os.getenv('MAX_MARKDOWN_LENGTH', 5000))
+MAX_HTML_LENGTH = int(os.getenv('MAX_HTML_LENGTH', 2000))
+MAX_LINKS = int(os.getenv('MAX_LINKS', 10))
+MAX_MEDIA = int(os.getenv('MAX_MEDIA', 10))
 
 app = Flask(__name__)
 CORS(app)
@@ -45,14 +59,14 @@ def crawl():
 
 async def crawl_url(url):
     """Async function to crawl a URL using Crawl4AI"""
-    async with AsyncWebCrawler(verbose=True) as crawler:
+    async with AsyncWebCrawler(verbose=CRAWLER_VERBOSE) as crawler:
         result = await crawler.arun(url=url)
 
         return {
-            'markdown': result.markdown[:5000] if result.markdown else '',  # Limit to first 5000 chars
-            'html': result.html[:2000] if result.html else '',  # First 2000 chars of HTML
-            'links': result.links['internal'][:10] if hasattr(result, 'links') and result.links else [],
-            'media': result.media['images'][:10] if hasattr(result, 'media') and result.media else []
+            'markdown': result.markdown[:MAX_MARKDOWN_LENGTH] if result.markdown else '',
+            'html': result.html[:MAX_HTML_LENGTH] if result.html else '',
+            'links': result.links['internal'][:MAX_LINKS] if hasattr(result, 'links') and result.links else [],
+            'media': result.media['images'][:MAX_MEDIA] if hasattr(result, 'media') and result.media else []
         }
 
 @app.route('/api/health', methods=['GET'])
@@ -62,5 +76,5 @@ def health():
 
 if __name__ == '__main__':
     print("Starting Crawl4AI Web Crawler Server...")
-    print("Server running at http://localhost:5000")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print(f"Server running at http://localhost:{FLASK_PORT}")
+    app.run(debug=FLASK_DEBUG, host=FLASK_HOST, port=FLASK_PORT)

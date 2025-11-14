@@ -14,12 +14,36 @@ A local website crawler built with Crawl4AI featuring a beautiful chat-style use
 
 ## Installation
 
-1. **Install dependencies:**
+### Prerequisites
+- Python 3.7 or higher
+- pip (Python package installer)
+- Internet connection (for crawling websites)
+
+### Local Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone <your-repo-url>
+   cd crawl4ai
+   ```
+
+2. **Create a virtual environment (recommended):**
+   ```bash
+   # On macOS/Linux
+   python -m venv venv
+   source venv/bin/activate
+
+   # On Windows
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Setup Crawl4AI:**
+4. **Setup Crawl4AI:**
    ```bash
    crawl4ai-setup
    ```
@@ -29,10 +53,30 @@ A local website crawler built with Crawl4AI featuring a beautiful chat-style use
    crawl4ai-doctor
    ```
 
-3. **Install Playwright (if needed):**
+5. **Install Playwright browsers (if needed):**
    ```bash
    playwright install
    ```
+
+6. **Configure environment variables (optional):**
+   ```bash
+   cp .env.example .env
+   # Edit .env to customize settings (port, debug mode, etc.)
+   ```
+
+## Configuration
+
+The application can be configured using environment variables in a `.env` file. Default values work out of the box for local development.
+
+Available settings:
+- `FLASK_HOST`: Server host (default: `0.0.0.0`)
+- `FLASK_PORT`: Server port (default: `5000`)
+- `FLASK_DEBUG`: Debug mode (default: `True`)
+- `CRAWLER_VERBOSE`: Verbose crawler output (default: `True`)
+- `MAX_MARKDOWN_LENGTH`: Maximum markdown output length (default: `5000`)
+- `MAX_HTML_LENGTH`: Maximum HTML output length (default: `2000`)
+- `MAX_LINKS`: Maximum number of links to return (default: `10`)
+- `MAX_MEDIA`: Maximum number of media items to return (default: `10`)
 
 ## Usage
 
@@ -42,12 +86,33 @@ A local website crawler built with Crawl4AI featuring a beautiful chat-style use
    ```
 
 2. **Open your browser:**
-   Navigate to `http://localhost:5000`
+   Navigate to `http://localhost:5000` (or the port configured in your `.env`)
 
 3. **Crawl websites:**
    - Enter any website URL in the input field
    - Press "Crawl" or hit Enter
    - View the extracted content, links, and media
+
+## Quick Start (TL;DR)
+
+```bash
+# Clone and navigate to the project
+git clone <your-repo-url>
+cd crawl4ai
+
+# Set up virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install and setup
+pip install -r requirements.txt
+crawl4ai-setup
+
+# Run the application
+python app.py
+
+# Open http://localhost:5000 in your browser
+```
 
 ## Project Structure
 
@@ -55,6 +120,8 @@ A local website crawler built with Crawl4AI featuring a beautiful chat-style use
 crawl4ai/
 ├── app.py              # Flask backend with Crawl4AI integration
 ├── requirements.txt    # Python dependencies
+├── .env.example        # Environment variable template
+├── .gitignore          # Git ignore patterns
 ├── static/
 │   └── index.html     # Chat UI interface
 └── README.md          # This file
@@ -103,9 +170,35 @@ Health check endpoint.
 
 ## Troubleshooting
 
-- **Playwright errors:** Run `playwright install`
+### Common Issues
+
+- **Playwright errors:** Run `playwright install` to install browser binaries
 - **Setup issues:** Run `crawl4ai-doctor` for diagnostics
-- **Port already in use:** Change port in `app.py`
+- **Port already in use:** Change `FLASK_PORT` in your `.env` file or set it directly
+  ```bash
+  # In .env file
+  FLASK_PORT=8080
+
+  # Or run with environment variable
+  FLASK_PORT=8080 python app.py
+  ```
+- **Module not found errors:** Make sure your virtual environment is activated
+  ```bash
+  # On macOS/Linux
+  source venv/bin/activate
+
+  # On Windows
+  venv\Scripts\activate
+  ```
+- **Permission errors:** Try running with a virtual environment instead of system Python
+
+### Getting Help
+
+If you encounter any issues:
+1. Check that all dependencies are installed: `pip list`
+2. Verify your Python version: `python --version` (should be 3.7+)
+3. Run the diagnostic tool: `crawl4ai-doctor`
+4. Check the console output for detailed error messages
 
 ## License
 
