@@ -51,6 +51,38 @@
             opacity: 0.9;
         }
 
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .mode-button {
+            padding: 8px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .mode-button.active {
+            background: white;
+            color: #667eea;
+            border-color: white;
+        }
+
+        .mode-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .mode-button.active:hover {
+            background: white;
+        }
+
         .chat-container {
             flex: 1;
             overflow-y: auto;
@@ -98,6 +130,7 @@
             border: 1px solid #e0e0e0;
             border-bottom-left-radius: 5px;
             text-align: left;
+            max-width: 90%;
         }
 
         .message.bot .message-content pre {
@@ -108,12 +141,17 @@
             margin: 10px 0;
             font-size: 13px;
             line-height: 1.6;
+            max-height: 300px;
+            overflow-y: auto;
         }
 
         .message.bot .message-content .url-info {
             color: #667eea;
             font-weight: 600;
             margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .message.bot .message-content .section {
@@ -125,6 +163,44 @@
             color: #764ba2;
             margin-bottom: 5px;
             font-size: 14px;
+        }
+
+        .download-button {
+            padding: 6px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .download-button:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+
+        .page-result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .page-result .page-url {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 13px;
+            word-break: break-all;
+        }
+
+        .page-result .page-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
         }
 
         .input-container {
@@ -159,6 +235,7 @@
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
+            white-space: nowrap;
         }
 
         .crawl-button:hover:not(:disabled) {
@@ -195,6 +272,14 @@
             margin: 10px 0;
         }
 
+        .success {
+            color: #27ae60;
+            background: #d5f4e6;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
         .links-list, .media-list {
             list-style: none;
             margin: 10px 0;
@@ -213,6 +298,24 @@
 
         .links-list a:hover {
             text-decoration: underline;
+        }
+
+        .download-all-button {
+            padding: 10px 20px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 10px 0;
+        }
+
+        .download-all-button:hover {
+            background: #229954;
+            transform: translateY(-1px);
         }
 
         ::-webkit-scrollbar {
@@ -237,14 +340,20 @@
     <div class="container">
         <div class="header">
             <h1>🚀 Crawl4AI Web Crawler</h1>
-            <p>Paste any website URL below to crawl and extract content</p>
+            <p>Crawl single pages or entire sitemaps and download markdown</p>
+            <div class="mode-selector">
+                <button class="mode-button active" data-mode="single">Single Page</button>
+                <button class="mode-button" data-mode="sitemap">Entire Sitemap</button>
+            </div>
         </div>
 
         <div class="chat-container" id="chatContainer">
             <div class="message bot">
                 <div class="message-content">
                     <strong>Welcome!</strong><br>
-                    I'm your web crawler assistant. Enter a website URL below and I'll crawl it for you, extracting the content in markdown format along with links and media.
+                    I'm your web crawler assistant. Choose a mode:<br><br>
+                    <strong>Single Page:</strong> Crawl one URL and download its markdown<br>
+                    <strong>Entire Sitemap:</strong> Crawl all pages in a website's sitemap with individual downloads
                 </div>
             </div>
         </div>
@@ -258,7 +367,7 @@
                 autocomplete="off"
             >
             <button class="crawl-button" id="crawlButton">
-                Crawl
+                Crawl Page
             </button>
         </div>
     </div>
@@ -267,8 +376,27 @@
         const chatContainer = document.getElementById('chatContainer');
         const urlInput = document.getElementById('urlInput');
         const crawlButton = document.getElementById('crawlButton');
+        const modeButtons = document.querySelectorAll('.mode-button');
 
         let isProcessing = false;
+        let currentMode = 'single';
+
+        // Mode switching
+        modeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                modeButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                currentMode = button.dataset.mode;
+
+                if (currentMode === 'single') {
+                    crawlButton.textContent = 'Crawl Page';
+                    urlInput.placeholder = 'Enter website URL (e.g., https://example.com)';
+                } else {
+                    crawlButton.textContent = 'Crawl Sitemap';
+                    urlInput.placeholder = 'Enter website URL to crawl entire sitemap';
+                }
+            });
+        });
 
         function addMessage(content, isUser = false) {
             const messageDiv = document.createElement('div');
@@ -283,27 +411,33 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        function formatMarkdown(markdown) {
-            // Simple markdown formatting
-            return markdown
-                .replace(/\n/g, '<br>')
-                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.+?)\*/g, '<em>$1</em>');
+        function downloadMarkdown(markdown, filename) {
+            const blob = new Blob([markdown], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
-        async function crawlWebsite(url) {
-            if (isProcessing) return;
+        function downloadAllMarkdown(pages) {
+            pages.forEach((page, index) => {
+                if (page.success && page.markdown_full) {
+                    setTimeout(() => {
+                        downloadMarkdown(page.markdown_full, page.filename);
+                    }, index * 100); // Stagger downloads
+                }
+            });
+        }
 
-            if (!url.trim()) {
-                addMessage('<div class="error">Please enter a valid URL</div>');
-                return;
-            }
-
+        async function crawlSinglePage(url) {
             isProcessing = true;
             crawlButton.disabled = true;
             crawlButton.innerHTML = '<span class="loading"></span>Crawling...';
 
-            // Add user message
             addMessage(`Crawl: <strong>${url}</strong>`, true);
 
             try {
@@ -319,13 +453,18 @@
 
                 if (data.success) {
                     let resultHtml = `
-                        <div class="url-info">✅ Successfully crawled: ${data.url}</div>
+                        <div class="url-info">
+                            <span>✅ Successfully crawled: ${data.url}</span>
+                            <button class="download-button" onclick="downloadMarkdown(\`${escapeForJs(data.markdown_full)}\`, '${data.filename}')">
+                                📥 Download Markdown
+                            </button>
+                        </div>
                     `;
 
                     if (data.markdown) {
                         resultHtml += `
                             <div class="section">
-                                <div class="section-title">📄 Content (first 5000 chars):</div>
+                                <div class="section-title">📄 Content Preview (first 5000 chars):</div>
                                 <pre>${escapeHtml(data.markdown)}</pre>
                             </div>
                         `;
@@ -362,8 +501,95 @@
             } finally {
                 isProcessing = false;
                 crawlButton.disabled = false;
-                crawlButton.innerHTML = 'Crawl';
+                crawlButton.innerHTML = currentMode === 'single' ? 'Crawl Page' : 'Crawl Sitemap';
                 urlInput.value = '';
+            }
+        }
+
+        async function crawlSitemap(url) {
+            isProcessing = true;
+            crawlButton.disabled = true;
+            crawlButton.innerHTML = '<span class="loading"></span>Crawling Sitemap...';
+
+            addMessage(`Crawl Sitemap: <strong>${url}</strong>`, true);
+            addMessage('<div class="success">🔍 Fetching sitemap and crawling all pages... This may take a while.</div>');
+
+            try {
+                const response = await fetch('/api/crawl-sitemap', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const successPages = data.pages.filter(p => p.success);
+                    const failedPages = data.pages.filter(p => !p.success);
+
+                    // Store pages data globally for download function
+                    window.sitemapPages = data.pages;
+
+                    let resultHtml = `
+                        <div class="success">
+                            ✅ Successfully crawled ${successPages.length} of ${data.total_pages} pages
+                            ${failedPages.length > 0 ? `<br>(${failedPages.length} failed)` : ''}
+                        </div>
+                        <button class="download-all-button" onclick="downloadAllMarkdown(window.sitemapPages)">
+                            📦 Download All Markdown Files
+                        </button>
+                    `;
+
+                    // Display successful pages
+                    successPages.forEach((page, index) => {
+                        resultHtml += `
+                            <div class="page-result">
+                                <div class="page-url">📄 ${page.url}</div>
+                                <pre style="max-height: 150px; overflow-y: auto; font-size: 12px; background: white; padding: 10px; border-radius: 5px; margin: 8px 0;">${escapeHtml(page.markdown.substring(0, 500))}${page.markdown.length > 500 ? '...' : ''}</pre>
+                                <button class="download-button" onclick="downloadMarkdown(\`${escapeForJs(page.markdown_full)}\`, '${page.filename}')">
+                                    📥 Download ${page.filename}
+                                </button>
+                            </div>
+                        `;
+                    });
+
+                    // Display failed pages if any
+                    if (failedPages.length > 0) {
+                        resultHtml += '<div class="section"><div class="section-title">❌ Failed Pages:</div>';
+                        failedPages.forEach(page => {
+                            resultHtml += `<div class="error" style="font-size: 12px; padding: 8px; margin: 5px 0;">${page.url}: ${page.error}</div>`;
+                        });
+                        resultHtml += '</div>';
+                    }
+
+                    addMessage(resultHtml);
+                } else {
+                    addMessage(`<div class="error">❌ Error: ${data.error}</div>`);
+                }
+            } catch (error) {
+                addMessage(`<div class="error">❌ Network error: ${error.message}</div>`);
+            } finally {
+                isProcessing = false;
+                crawlButton.disabled = false;
+                crawlButton.innerHTML = 'Crawl Sitemap';
+                urlInput.value = '';
+            }
+        }
+
+        async function crawlWebsite(url) {
+            if (isProcessing) return;
+
+            if (!url.trim()) {
+                addMessage('<div class="error">Please enter a valid URL</div>');
+                return;
+            }
+
+            if (currentMode === 'single') {
+                await crawlSinglePage(url);
+            } else {
+                await crawlSitemap(url);
             }
         }
 
@@ -371,6 +597,10 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function escapeForJs(text) {
+            return text.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\\/g, '\\\\');
         }
 
         crawlButton.addEventListener('click', () => {
