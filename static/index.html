@@ -368,8 +368,8 @@
             <h1>🚀 Crawl4AI Web Crawler</h1>
             <p>Crawl single pages or entire sitemaps and download markdown</p>
             <div class="mode-selector">
-                <button class="mode-button active" data-mode="single">Single Page</button>
-                <button class="mode-button" data-mode="sitemap">Entire Sitemap</button>
+                <button class="mode-button active" data-mode="sitemap">Entire Sitemap</button>
+                <button class="mode-button" data-mode="single">Single Page</button>
             </div>
         </div>
 
@@ -378,8 +378,8 @@
                 <div class="message-content">
                     <strong>Welcome!</strong><br>
                     I'm your web crawler assistant. Choose a mode:<br><br>
-                    <strong>Single Page:</strong> Crawl one URL and download its markdown<br>
-                    <strong>Entire Sitemap:</strong> Crawl all pages in a website's sitemap with individual downloads
+                    <strong>Entire Sitemap:</strong> Crawl all pages in a website's sitemap with individual downloads<br>
+                    <strong>Single Page:</strong> Crawl one URL and download its markdown
                 </div>
             </div>
         </div>
@@ -389,11 +389,11 @@
                 type="text"
                 class="url-input"
                 id="urlInput"
-                placeholder="Enter website URL (e.g., https://example.com)"
+                placeholder="Enter website URL to crawl entire sitemap"
                 autocomplete="off"
             >
             <button class="crawl-button" id="crawlButton">
-                Crawl Page
+                Crawl Sitemap
             </button>
         </div>
     </div>
@@ -405,7 +405,7 @@
         const modeButtons = document.querySelectorAll('.mode-button');
 
         let isProcessing = false;
-        let currentMode = 'single';
+        let currentMode = 'sitemap';
 
         // Storage for markdown content (indexed by unique ID)
         const markdownStorage = {};
@@ -640,6 +640,18 @@
                         });
                         resultHtml += '</div>';
                     }
+
+                    // Add summary and download button at the bottom
+                    resultHtml += `
+                        <div class="success" style="margin-top: 20px;">
+                            ✅ Successfully crawled ${successPages.length} of ${data.total_pages} pages
+                            ${failedPages.length > 0 ? `<br>(${failedPages.length} failed)` : ''}
+                            <br><small>Discovery method: ${methodLabel}</small>
+                        </div>
+                        <button class="download-all-button" onclick="downloadAllMarkdown(window.sitemapPages)">
+                            📦 Download All Markdown Files
+                        </button>
+                    `;
 
                     addMessage(resultHtml);
                 } else {
